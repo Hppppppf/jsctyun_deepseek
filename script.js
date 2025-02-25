@@ -210,7 +210,7 @@ function calculateRequirements(modelType, precision, concurrency, contextLength,
 
     let hardwareComputeFactor = 1;
     switch (hardware) {
-        case 'ascend910b': hardwareComputeFactor = 0.8; computeLoad = adjustComputeLoad(computeLoad, 0.8); recommendation += " 昇腾910b 性能可能略低于同级别N卡。"; break;
+        case 'ascend910b': hardwareComputeFactor = 0.8; computeLoad = adjustComputeLoad(computeLoad, 0.8); recommendation += " 昇腾910B 性能可能略低于同级别N卡。"; break;
         case 'nvidia_a10': hardwareComputeFactor = 0.6; computeLoad = adjustComputeLoad(computeLoad, 0.6); recommendation += " A10 性能相对较低，适合中小型模型。"; break;
         case 'nvidia_a100': hardwareComputeFactor = 1.2; computeLoad = adjustComputeLoad(computeLoad, 1.2); break;
         case 'nvidia_a100_40g': hardwareComputeFactor = 1.1; computeLoad = adjustComputeLoad(computeLoad, 1.1); recommendation += " A100-40G 性能略低于 A100-80G。"; break;
@@ -317,7 +317,7 @@ function getHardwareDisplayName(hardware) {
         'nvidia_a10': 'NVIDIA A10',
         'nvidia_rtx4090': 'NVIDIA RTX 4090',
         'nvidia_a100_40g': 'NVIDIA A100-40G',
-        'ascend910b': '华为昇腾910b'
+        'ascend910b': '华为昇腾910B'
     };
     return hardwareDisplayNames[hardware] || hardware;
 }
