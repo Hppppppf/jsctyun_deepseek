@@ -11,6 +11,7 @@
 
 .input-section label {
     display: block;
+    height: 20px;
     margin-bottom: 5px;
     font-weight: bold;
 }
