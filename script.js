@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (selectedPrecision === 'fp8') {
             hardwareSelect.add(allHardwareOptions.find(option => option.value === 'nvidia_l40s').cloneNode(true));
+            hardwareSelect.add(allHardwareOptions.find(option => option.value === 'nvidia_l20').cloneNode(true));
             hardwareSelect.add(allHardwareOptions.find(option => option.value === 'nvidia_rtx4090').cloneNode(true));
             hardwareSelect.add(allHardwareOptions.find(option => option.value === 'nvidia_h20').cloneNode(true));
             hardwareSelect.add(allHardwareOptions.find(option => option.value === 'nvidia_h800').cloneNode(true));
@@ -55,7 +56,6 @@ document.getElementById('calculate-button').addEventListener('click', function()
             hardwareRecommendationHTML += `<div class="result-item">  - ${getHardwareDisplayName(hardwareName)}: <strong>${count} 块</strong></div>`;
         }
 
-
         resultsDiv.innerHTML += `
             <div class="result-item"><strong>模型:</strong> ${getModelDisplayName(modelType)}</div>
             <div class="result-item"><strong>精度:</strong> ${getPrecisionDisplayName(precision)}</div>
@@ -70,17 +70,19 @@ document.getElementById('calculate-button').addEventListener('click', function()
             <div class="result-item">  - 模型权重: <strong>${calculationResults.model_weights_memory}</strong></div>
             <div class="result-item">  - KV Cache: <strong>${calculationResults.kv_cache_memory}</strong></div>
             <div class="result-item">  - 激活内存: <strong>${calculationResults.activation_memory}</strong></div>
-            <div class="result-item">  - 碎片化 & 其他: <strong>${calculationResults.other_memory}</strong></div>
-            <div class="result-item"><strong>总显存需求: </strong> <strong>${calculationResults.memory}</strong></div>
+            <div class="result-item">  - 碎片化 & 预分配缓冲区: <strong>${calculationResults.other_memory}</strong></div>
+            <div class="result-item"><strong>总显存需求 (理论值): </strong> <strong>${calculationResults.theoretical_memory}</strong></div>
+            <div class="result-item"><strong>实际显存占用 (估计值): </strong> <strong>${calculationResults.practical_memory}</strong></div>
             ${hardwareRecommendationHTML}
             <div class="result-item"><strong>预估算力需求:</strong> ${calculationResults.compute}</div>
             <div class="result-item"><strong>预估算力机台数:</strong> <strong>${calculationResults.machine_count} 台</strong></div>
             <div class="result-item"><strong>部署建议:</strong> ${calculationResults.deployment_recommendation}</div>
             <div class="result-item"><strong>建议:</strong> ${calculationResults.recommendation}</div>
-            <p class="result-item" style="font-size: smaller; color: gray;">* 显存和算力均为估算值，实际情况可能因多种因素而异。</p>
-            <p class="result-item" style="font-size: smaller; color: gray;">* 推理显存估算公式：总内存 = 模型权重内存 + KV Cache 内存 + 激活内存 + 碎片化内存</p>
+            <p class="result-item" style="font-size: smaller; color: gray;">* 显存估算分为理论值和实际值。理论值是各部分显存需求的和，实际值考虑了推理框架的内存管理策略。</p>
+            <p class="result-item" style="font-size: smaller; color: gray;">* 推理框架通常在启动时预分配大部分显存，并在运行时重用内存，因此即使并发增加，显存占用可能保持相对稳定。</p>
+            <p class="result-item" style="font-size: smaller; color: gray;">* 现代推理框架(如vLLM和SGLang)通常采用高效的内存管理策略，可在相同显存下支持更高的吞吐量。</p>
+            <p class="result-item" style="font-size: smaller; color: gray;">* 虽然显存占用可能不随并发明显变化，但GPU利用率和功耗会相应增加。</p>
             ${fineTuningMethod === 'lora' ? `<p class="result-item" style="font-size: smaller; color: gray;">* LoRA 微调会增加少量模型权重内存。</p>` : ''}
-            <p class="result-item" style="font-size: smaller; color: gray;">* 模型架构参数 (层数、隐藏维度等) 基于 DeepSeek 模型近似配置。</p>
             <p class="result-item" style="font-size: smaller; color: gray;">* 算力卡数量为满足显存需求的**最少估算**，实际部署可能需要更多卡以满足性能需求。</p>
             <p class="result-item" style="font-size: smaller; color: gray;">* 算力机台数假设 NVIDIA 和 华为昇腾 机器每台都包含 8 张算力卡。</p>
         `;
@@ -91,17 +93,6 @@ document.getElementById('calculate-button').addEventListener('click', function()
 
 
 function calculateRequirements(modelType, precision, concurrency, contextLength, framework, fineTuningMethod = 'inference', loraTrainableParamsBillion = 0, hardware) {
-    let estimatedMemoryGB = 0;
-    let computeLoad = "中等";
-    let recommendation = "请根据实际情况调整参数和框架选择。";
-    let hardwareRecommendation = {};
-    let model_weights_memory_gb = 0;
-    let kv_cache_memory_gb = 0;
-    let activation_memory_gb = 0;
-    let other_memory_gb = 0;
-    let machine_count = 0;
-    let deployment_recommendation = "";
-
     // **直接使用常量定义模型大小 (GB) - 来自用户提供的数据**
     const modelSizesGB = {
         'r1_671b': { 'fp16': 1342, 'bf16': 1342, 'fp8': 671, 'int8': 671, 'int4': 335.5 },
@@ -113,14 +104,14 @@ function calculateRequirements(modelType, precision, concurrency, contextLength,
         'r1_1.5b': { 'fp16': 3,    'bf16': 3,    'fp8': 1.5, 'int8': 1.5, 'int4': 0.75 }
     };
 
-    // **模型架构细节 (来自用户提供的数据)**
+    // **模型架构细节**
     const modelArchParams = {
         'r1_671b': { params: 671, layers: 61, hidden_dim: 7168, kv_heads: 128, head_dim: 128, kv_compress_dim: 512, moe: true },
         'r1_1.5b': { params: 1.5, layers: 28, hidden_dim: 2020, kv_heads: 3, head_dim: 673, kv_compress_dim: null, moe: false },
         'r1_7b':   { params: 7, layers: 34, hidden_dim: 4096, kv_heads: 32, head_dim: 128, kv_compress_dim: null, moe: false },
         'r1_8b':   { params: 8, layers: 32, hidden_dim: 4096, kv_heads: 32, head_dim: 128, kv_compress_dim: null, moe: false },
-        'r1_14b':  { params: 14, layers: 69, hidden_dim: 4096, kv_heads: 32, head_dim: 128, kv_compress_dim: null, moe: false },
-        'r1_32b':  { params: 32, layers: 64, hidden_dim: 6400, kv_heads: 8, head_dim: 800, kv_compress_dim: null, moe: false },
+        'r1_14b':  { params: 14, layers: 69, hidden_dim: 4096, kv_heads: 8, head_dim: 128, kv_compress_dim: null, moe: false },
+        'r1_32b':  { params: 32, layers: 64, hidden_dim: 5120, kv_heads: 8, head_dim: 128, kv_compress_dim: null, moe: false },
         'r1_70b':  { params: 70, layers: 80, hidden_dim: 8192, kv_heads: 8, head_dim: 128, kv_compress_dim: null, moe: false }
     };
 
@@ -135,47 +126,80 @@ function calculateRequirements(modelType, precision, concurrency, contextLength,
     };
     const dtype_bytes = n_dtype_bytes[precision];
 
-    // 1. 模型权重内存 (直接从常量读取)
-    model_weights_memory_gb = modelSizesGB[modelType][precision];
+    let recommendation = "";
+    let deployment_recommendation = "";
+    let computeLoad = "中等";
 
-    // 2. KV Cache 内存 - 基于理论模型的计算
+    // 1. 模型权重内存 (静态部分，不随并发变化)
+    const model_weights_memory_gb = modelSizesGB[modelType][precision];
+
+    // 2. KV Cache 内存 - 理论上随并发线性增长
     let kvCacheSizeBytes = 0;
     
     if (model_config.moe) {
-        // MoE 模型（R1 671B）- 使用压缩维度
-        // 这里的kv_compress_dim是一个优化参数，使得KV缓存比标准Transformer更小
+        // MoE 模型（如R1 671B）- 使用压缩维度
         const bytes_per_token = 2 * model_config.kv_compress_dim * dtype_bytes; // 2表示K和V
         kvCacheSizeBytes = concurrency * contextLength * model_config.layers * bytes_per_token;
     } else {
-        // 标准Transformer模型 - 使用标准公式
-        // 每个注意力头的KV缓存大小 = 2(K和V) * 头维度 * 数据类型字节数
+        // 标准Transformer模型
         const head_kv_bytes = 2 * model_config.head_dim * dtype_bytes;
-        // 每层的KV缓存 = 头数 * 每个头的KV缓存
         const layer_kv_bytes = model_config.kv_heads * head_kv_bytes;
-        // 总KV缓存 = 并发数 * 上下文长度 * 层数 * 每层KV缓存
         kvCacheSizeBytes = concurrency * contextLength * model_config.layers * layer_kv_bytes;
     }
     
     // 转换为GB
-    kv_cache_memory_gb = kvCacheSizeBytes / (1024 * 1024 * 1024);
+    const kv_cache_memory_gb = kvCacheSizeBytes / (1024 * 1024 * 1024);
 
-    // 3. 激活内存 - 基于理论模型的计算
-    // 激活内存与模型的复杂度和并发数成正比
-    // 每个token的激活内存大小与hidden_dim相关
+    // 3. 激活内存 - 理论上也随并发线性增长
     const tokens_activation_bytes = model_config.hidden_dim * dtype_bytes;
-    // 标准的激活内存估算 - 一个简化模型
-    // 使用一个系数来表示平均每层每token的激活空间需求相对于hidden_dim的比例
-    const activation_ratio = model_config.moe ? 0.05 : 0.1; // MoE模型激活内存相对较小
+    const activation_ratio = model_config.moe ? 0.05 : 0.1;
     const activationSizeBytes = concurrency * contextLength * model_config.layers * tokens_activation_bytes * activation_ratio;
+    const activation_memory_gb = activationSizeBytes / (1024 * 1024 * 1024);
+
+    // 4. 碎片化内存及其他开销
+    // 增大预留比例，考虑到预分配的内存池
+    const fragmentation_ratio = 0.25; // 25%的碎片化和其他开销
+    const other_memory_gb = (model_weights_memory_gb + kv_cache_memory_gb + activation_memory_gb) * fragmentation_ratio;
+
+    // 5. 理论总内存 - 各部分之和
+    const theoretical_memory_gb = model_weights_memory_gb + kv_cache_memory_gb + activation_memory_gb + other_memory_gb;
+
+    // 6. 实际显存占用估算 - 考虑推理框架特性
+    let practical_memory_gb = 0;
+    let framework_efficiency_factor = 1.0; // 默认因子
     
-    // 转换为GB
-    activation_memory_gb = activationSizeBytes / (1024 * 1024 * 1024);
+    // 根据不同推理框架调整实际显存占用
+    if (framework === 'vllm') {
+        // vLLM预分配策略 - 启动时分配大部分显存，后续复用
+        const base_memory = model_weights_memory_gb + other_memory_gb * 1.2; // 基础内存（模型权重+预留缓冲区）
+        const dynamic_memory = Math.min(kv_cache_memory_gb + activation_memory_gb, theoretical_memory_gb * 0.2); // 限制动态部分增长
+        practical_memory_gb = base_memory + dynamic_memory;
+        framework_efficiency_factor = 1.1; // vLLM效率较高
+        recommendation += " vLLM采用预分配显存策略，启动后显存占用较高但相对稳定，支持高效推理。";
+    } else if (framework === 'sglang') {
+        // SGLang类似vLLM，但预分配更激进
+        const base_memory = model_weights_memory_gb + other_memory_gb * 1.3; // SGLang的基础内存占用可能略高
+        const dynamic_memory = Math.min(kv_cache_memory_gb + activation_memory_gb, theoretical_memory_gb * 0.15); // 更严格限制动态增长
+        practical_memory_gb = base_memory + dynamic_memory;
+        framework_efficiency_factor = 1.05; // SGLang效率适中
+        recommendation += " SGLang与vLLM类似采用预分配策略，显存占用相对稳定，支持较高并发。";
+    } else if (framework === 'llama_cpp') {
+        // llama.cpp可能更节省显存但效率较低
+        practical_memory_gb = theoretical_memory_gb * 0.9; // 相对节省显存
+        framework_efficiency_factor = 0.8; // 效率较低
+        recommendation += " llama.cpp显存效率较高，但可能导致计算速度下降。";
+    } else if (framework === 'mindspore') {
+        // MindSpore针对昇腾优化
+        practical_memory_gb = theoretical_memory_gb * 0.95; 
+        framework_efficiency_factor = 0.9;
+        recommendation += " MindSpore在昇腾硬件上优化较好，显存使用效率较高。";
+    } else {
+        // 通用估算
+        practical_memory_gb = theoretical_memory_gb;
+        recommendation += " 通用推理框架下，显存占用会随并发数增加而增长。";
+    }
 
-    // 4. 总内存和碎片化内存
-    estimatedMemoryGB = model_weights_memory_gb + kv_cache_memory_gb + activation_memory_gb;
-    other_memory_gb = estimatedMemoryGB * 0.2; // 碎片化及其他开销 (20%)
-    estimatedMemoryGB += other_memory_gb;
-
+    // 硬件内存容量
     const hardwareMemoryGB = {
         'nvidia_a10': 24,
         'nvidia_a100': 80,
@@ -185,19 +209,22 @@ function calculateRequirements(modelType, precision, concurrency, contextLength,
         'nvidia_h800': 80,
         'nvidia_l40s': 48,
         'nvidia_rtx4090': 24,
-        'ascend910b': 56
+        'ascend910b64': 56,
+        'ascend910b32': 24,
+        'nvidia_l20': 48
     };
 
-    hardwareRecommendation = calculateHardwareCount(estimatedMemoryGB, hardwareMemoryGB, hardware);
+    // 计算推荐硬件数量
+    const hardwareRecommendation = calculateHardwareCount(practical_memory_gb, hardwareMemoryGB, hardware);
 
+    // 计算机器数量
     const cardsPerMachine = 8;
+    let machine_count = 0;
     if (hardwareRecommendation && hardwareRecommendation[hardware]) {
         machine_count = Math.ceil(hardwareRecommendation[hardware] / cardsPerMachine);
-    } else {
-        machine_count = 0;
     }
 
-    let deploymentFactorCompute = 1;
+    // 根据模型大小调整部署建议
     if (model_config.params >= 70) { // 70B 及以上模型
         deployment_recommendation += " 建议采用多机多卡或模型并行等分布式部署策略。";
         computeLoad = adjustComputeLoad(computeLoad, 1.5);
@@ -208,41 +235,57 @@ function calculateRequirements(modelType, precision, concurrency, contextLength,
         deployment_recommendation += " 可以尝试单卡部署，或使用多卡并行以支持更高并发。";
     }
 
+    // 根据硬件类型调整计算负载和建议
     let hardwareComputeFactor = 1;
     switch (hardware) {
-        case 'ascend910b': hardwareComputeFactor = 0.8; computeLoad = adjustComputeLoad(computeLoad, 0.8); recommendation += " 昇腾910B 性能可能略低于同级别N卡。"; break;
+        case 'ascend910b64': hardwareComputeFactor = 0.8; computeLoad = adjustComputeLoad(computeLoad, 0.8); recommendation += " 昇腾910b 性能可能略低于同级别N卡。"; break;
+        case 'ascend910b32': hardwareComputeFactor = 0.8; computeLoad = adjustComputeLoad(computeLoad, 0.8); recommendation += " 昇腾910b 性能可能略低于同级别N卡,32g卡只适合70B及以下模型部署。"; break;
         case 'nvidia_a10': hardwareComputeFactor = 0.6; computeLoad = adjustComputeLoad(computeLoad, 0.6); recommendation += " A10 性能相对较低，适合中小型模型。"; break;
         case 'nvidia_a100': hardwareComputeFactor = 1.2; computeLoad = adjustComputeLoad(computeLoad, 1.2); break;
         case 'nvidia_a100_40g': hardwareComputeFactor = 1.1; computeLoad = adjustComputeLoad(computeLoad, 1.1); recommendation += " A100-40G 性能略低于 A100-80G。"; break;
         case 'nvidia_a800': hardwareComputeFactor = 1.1; computeLoad = adjustComputeLoad(computeLoad, 1.1); break;
         case 'nvidia_h20': hardwareComputeFactor = 1.3; computeLoad = adjustComputeLoad(computeLoad, 1.3); break;
-        case 'nvidia_h800': hardwareComputeFactor = 1.5; computeLoad = adjustComputeLoad(computeLoad, 1.5); computeLoad = "非常高"; recommendation = " H800/H20 是高性能卡，适合大型模型。"; break;
+        case 'nvidia_l20': hardwareComputeFactor = 1.3; computeLoad = adjustComputeLoad(computeLoad, 1.0); break;
+        case 'nvidia_h800': hardwareComputeFactor = 1.5; computeLoad = adjustComputeLoad(computeLoad, 1.5); computeLoad = "非常高"; recommendation += " H800/H20 是高性能卡，适合大型模型。"; break;
         case 'nvidia_rtx4090': hardwareComputeFactor = 0.9; computeLoad = adjustComputeLoad(computeLoad, 0.9); recommendation += " RTX 4090 消费级卡，性价比高，但显存可能受限。"; break;
         case 'nvidia_l40s': hardwareComputeFactor = 1.0; computeLoad = adjustComputeLoad(computeLoad, 1.0); break;
     }
     computeLoad = adjustComputeLoad(computeLoad, hardwareComputeFactor);
 
+    // 根据并发数调整计算负载
+    if (concurrency > 10) {
+        computeLoad = adjustComputeLoad(computeLoad, 1.5);
+        recommendation += " 高并发场景下，虽然显存占用可能相对稳定，但GPU计算负载会显著增加。";
+    } else if (concurrency > 5) {
+        computeLoad = adjustComputeLoad(computeLoad, 1.2);
+        recommendation += " 中等并发下，GPU计算负载会相应增加，但显存占用变化不会很大。";
+    }
+
+    // 推理框架特性补充说明
     if (framework === 'vllm') {
-        computeLoad = adjustComputeLoad(computeLoad, 1.1);
-        recommendation += " vLLM 框架通常能提供更高的推理吞吐量。";
-        deployment_recommendation += " 推荐使用 vLLM 框架进行高性能推理部署。";
+        computeLoad = adjustComputeLoad(computeLoad, framework_efficiency_factor);
+        deployment_recommendation += " vLLM框架能提供更高的推理吞吐量，但启动时会预分配大部分显存。在实际运行中，显存占用可能保持在125GB左右，即使并发增加也变化不大。";
     } else if (framework === 'llama_cpp') {
-        computeLoad = adjustComputeLoad(computeLoad, 0.9);
-        recommendation += " llama.cpp 框架适用于 CPU/GPU 混合推理场景。";
-        deployment_recommendation += " llama.cpp 适用于 CPU/GPU 混合推理，如果资源有限或需要CPU参与推理，可以考虑。";
+        computeLoad = adjustComputeLoad(computeLoad, framework_efficiency_factor);
+        deployment_recommendation += " llama.cpp框架适用于资源受限场景，可能更节省显存但计算效率较低。";
     } else if (framework === 'mindspore') {
-        recommendation += " MindSpore 是华为昇腾平台的推荐框架，性能可能更优。";
-        deployment_recommendation += " 对于华为昇腾 910B 平台，强烈推荐使用 MindSpore 框架以获得最佳性能。";
+        recommendation += " MindSpore是华为昇腾平台的推荐框架，性能可能更优。";
+        deployment_recommendation += " 对于华为昇腾910B平台，推荐使用MindSpore框架以获得最佳性能。";
     } else {
-        deployment_recommendation += " 通用部署建议：根据模型大小和并发需求，选择合适的推理框架。";
+        deployment_recommendation += " 通用推理框架下，显存占用可能会随并发增加而有所变化。";
     }
 
     return {
-        memory: estimatedMemoryGB.toFixed(2) + " GB (估算值)",
-        model_weights_memory: model_weights_memory_gb.toFixed(2) + " GB (估算值)",
-        kv_cache_memory: kv_cache_memory_gb.toFixed(2) + " GB (估算值)",
-        activation_memory: activation_memory_gb.toFixed(2) + " GB (估算值)",
-        other_memory: other_memory_gb.toFixed(2) + " GB (估算值)",
+        // 理论内存需求 (传统计算方式)
+        theoretical_memory: theoretical_memory_gb.toFixed(2) + " GB",
+        // 实际内存占用 (考虑框架特性)
+        practical_memory: practical_memory_gb.toFixed(2) + " GB",
+        // 各组成部分
+        model_weights_memory: model_weights_memory_gb.toFixed(2) + " GB",
+        kv_cache_memory: kv_cache_memory_gb.toFixed(2) + " GB",
+        activation_memory: activation_memory_gb.toFixed(2) + " GB",
+        other_memory: other_memory_gb.toFixed(2) + " GB (包含预分配缓冲区)",
+        // 其他结果
         compute: computeLoad + " (估算值)",
         recommendation: recommendation,
         hardware_recommendation: hardwareRecommendation,
@@ -294,30 +337,18 @@ function getModelDisplayName(modelType) {
 }
 
 
-function getDeploymentDisplayName(deploymentMethod) {
-    // 部署方式显示名称 (虽然不再使用选择，但函数保留，可能在部署建议中使用)
-    const deploymentDisplayNames = {
-        'single_card': '单卡部署',
-        'multi_card': '多卡部署',
-        'multi_machine_multi_card': '多机多卡部署',
-        'tensor_parallel': '张量并行',
-        'pipeline_parallel': '流水线并行',
-        'model_parallel': '模型并行 (通用)'
-    };
-    return deploymentDisplayNames[deploymentMethod] || deploymentMethod;
-}
-
-
 function getHardwareDisplayName(hardware) {
     const hardwareDisplayNames = {
         'nvidia_h20': 'NVIDIA H20',
         'nvidia_h800': 'NVIDIA H800',
         'nvidia_a800': 'NVIDIA A800',
+        'nvidia_l20': 'NVIDIA L20',
         'nvidia_l40s': 'NVIDIA L40S',
         'nvidia_a10': 'NVIDIA A10',
         'nvidia_rtx4090': 'NVIDIA RTX 4090',
         'nvidia_a100_40g': 'NVIDIA A100-40G',
-        'ascend910b': '华为昇腾910B'
+        'ascend910b64': '华为昇腾910b64g',
+        'ascend910b32': '华为昇腾910b32g'
     };
     return hardwareDisplayNames[hardware] || hardware;
 }
