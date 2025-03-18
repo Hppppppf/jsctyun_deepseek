@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱站统计数据展示</title>
+</head>
+
+<body>
+    <h1>爱站统计数据</h1>
+    <div id="statistics"></div>
+    <script>
+        // 假设的爱站 API 地址
+        const API_URL = "https://www.aizhantj.com/Api/Simple/report?access=a02f4****ca85c1";
+        // 假设的 API 参数
+        const API_PARAMS = {
+            site: "https://hppppppf.github.io/jsctyun_deepseek/",
+            key: "m6rzto3yhzbj38ft9sxy54p8sv5771mb"
+        };
+
+        // 构建带有参数的 URL
+        const queryString = Object.keys(API_PARAMS)
+           .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(API_PARAMS[key])}`)
+           .join('&');
+        const fullUrl = `${API_URL}?${queryString}`;
+
+        // 发起 API 请求
+        fetch(fullUrl)
+           .then(response => {
+                if (!response.ok) {
+                    throw new Error(`网络响应不正常: ${response.status}`);
+                }
+                return response.json();
+            })
+           .then(data => {
+                const statisticsDiv = document.getElementById('statistics');
+                const preElement = document.createElement('pre');
+                preElement.textContent = JSON.stringify(data, null, 2);
+                statisticsDiv.appendChild(preElement);
+            })
+           .catch(error => {
+                const statisticsDiv = document.getElementById('statistics');
+                statisticsDiv.textContent = `请求出错: ${error.message}`;
+            });
+    </script>
+</body>
+
+</html>    
