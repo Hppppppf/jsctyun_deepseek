@@ -1,24 +1,23 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>网站信息展示</title>
+    <title>数据展示</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
         }
 
-        table,
         th,
         td {
-            border: 1px solid #ccc;
-        }
-
-        th,
-        td {
+            border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
         }
@@ -26,66 +25,193 @@
         th {
             background-color: #f2f2f2;
         }
-
-        #error-message {
-            color: red;
-        }
     </style>
 </head>
 
 <body>
-    <h1>网站信息列表</h1>
-    <div id="error-message"></div>
-    <table id="site-table">
-        <thead>
-            <tr>
-                <th>siteKey</th>
-                <th>siteName</th>
-                <th>siteDomain</th>
-            </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
+    <h1>数据展示</h1>
+    <div id="totalToday"></div>
+    <div id="totalYesterday"></div>
+    <div id="totalLastWeekNow"></div>
+    <div id="refDomain"></div>
+    <div id="urls"></div>
+    <div id="isp"></div>
+    <div id="area"></div>
+    <div id="searchkw"></div>
+    <div id="lang"></div>
+    <div id="ds"></div>
 
     <script>
-        const siteTable = document.getElementById('site-table');
-        const errorMessageDiv = document.getElementById('error-message');
+        const url = 'https://www.aizhantj.com/Api/Report/index?access=m6rzto3yhzbj38ft9sxy54p8sv5771mb&siteKey=f8eg5d65fvc';
 
-        fetch('https://tongji.aizhan.com/Api/site/list/?access=m6rzto3yhzbj38ft9sxy54p8sv5771mb')
-           .then(response => {
+        async function fetchData() {
+            try {
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.json();
-            })
-           .then(data => {
-                if (data.status) {
-                    const tbody = siteTable.querySelector('tbody');
-                    data.result.forEach(site => {
-                        const row = document.createElement('tr');
-                        const siteKeyCell = document.createElement('td');
-                        const siteNameCell = document.createElement('td');
-                        const siteDomainCell = document.createElement('td');
+                const data = await response.json();
+                displayData(data.result);
+            } catch (error) {
+                console.error('Fetch error:', error);
+            }
+        }
 
-                        siteKeyCell.textContent = site.siteKey;
-                        siteNameCell.textContent = site.siteName;
-                        siteDomainCell.textContent = site.siteDomain;
+        function displayData(result) {
+            // 今日汇总
+            const totalTodayDiv = document.getElementById('totalToday');
+            totalTodayDiv.innerHTML = `<h2>今日汇总</h2>
+                <p>PV: ${result.totalToday.pv}</p>
+                <p>IP: ${result.totalToday.ip}</p>
+                <p>UV: ${result.totalToday.uv}</p>
+                <p>URLs: ${result.totalToday.urls}</p>`;
 
-                        row.appendChild(siteKeyCell);
-                        row.appendChild(siteNameCell);
-                        row.appendChild(siteDomainCell);
+            // 昨日汇总
+            const totalYesterdayDiv = document.getElementById('totalYesterday');
+            totalYesterdayDiv.innerHTML = `<h2>昨日汇总</h2>
+                <p>PV: ${result.totalYesterday.pv}</p>
+                <p>IP: ${result.totalYesterday.ip}</p>
+                <p>UV: ${result.totalYesterday.uv}</p>
+                <p>URLs: ${result.totalYesterday.urls}</p>`;
 
-                        tbody.appendChild(row);
-                    });
-                } else {
-                    errorMessageDiv.textContent = `请求失败，错误码: ${data.errno}，错误信息: ${data.errmsg}`;
-                }
-            })
-           .catch(error => {
-                errorMessageDiv.textContent = `请求数据时出现错误: ${error.message}`;
+            // 上周此时汇总
+            const totalLastWeekNowDiv = document.getElementById('totalLastWeekNow');
+            totalLastWeekNowDiv.innerHTML = `<h2>上周此时汇总</h2>
+                <p>PV: ${result.totalLastWeekNow.pv}</p>
+                <p>IP: ${result.totalLastWeekNow.ip}</p>
+                <p>UV: ${result.totalLastWeekNow.uv}</p>
+                <p>URLs: ${result.totalLastWeekNow.urls}</p>`;
+
+            // 来源 TOP10
+            const refDomainDiv = document.getElementById('refDomain');
+            let refDomainTable = `<h2>来源 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>来源域名</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.refDomain.list.forEach(item => {
+                refDomainTable += `<tr>
+                    <td>${item.from_domain}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
             });
+            refDomainTable += `</table>`;
+            refDomainDiv.innerHTML = refDomainTable;
+
+            // 受访页面 TOP10
+            const urlsDiv = document.getElementById('urls');
+            let urlsTable = `<h2>受访页面 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>URL MD5</th>
+                        <th>URL</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.urls.list.forEach(item => {
+                urlsTable += `<tr>
+                    <td>${item.url_md5}</td>
+                    <td><a href="${item.url}" target="_blank">${item.url}</a></td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            urlsTable += `</table>`;
+            urlsDiv.innerHTML = urlsTable;
+
+            // 网络运营商 TOP10
+            const ispDiv = document.getElementById('isp');
+            let ispTable = `<h2>网络运营商 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>网络运营商</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.isp.list.forEach(item => {
+                ispTable += `<tr>
+                    <td>${item.isp}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            ispTable += `</table>`;
+            ispDiv.innerHTML = ispTable;
+
+            // 区域分布 TOP10
+            const areaDiv = document.getElementById('area');
+            let areaTable = `<h2>区域分布 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>国家</th>
+                        <th>地区</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.area.list.forEach(item => {
+                areaTable += `<tr>
+                    <td>${item.ip_country}</td>
+                    <td>${item.ip_region}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            areaTable += `</table>`;
+            areaDiv.innerHTML = areaTable;
+
+            // 搜索关键词 TOP10
+            const searchkwDiv = document.getElementById('searchkw');
+            let searchkwTable = `<h2>搜索关键词 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>关键词 MD5</th>
+                        <th>搜索关键词</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.searchkw.list.forEach(item => {
+                searchkwTable += `<tr>
+                    <td>${item.kw_md5}</td>
+                    <td>${item.search_kw}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            searchkwTable += `</table>`;
+            searchkwDiv.innerHTML = searchkwTable;
+
+            // 语言分辨率 TOP10
+            const langDiv = document.getElementById('lang');
+            let langTable = `<h2>语言分辨率 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>语言</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.lang.list.forEach(item => {
+                langTable += `<tr>
+                    <td>${item.lang}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            langTable += `</table>`;
+            langDiv.innerHTML = langTable;
+
+            // 屏幕分辨率 TOP10
+            const dsDiv = document.getElementById('ds');
+            let dsTable = `<h2>屏幕分辨率 TOP10</h2>
+                <table>
+                    <tr>
+                        <th>宽度</th>
+                        <th>高度</th>
+                        <th>PV</th>
+                    </tr>`;
+            result.ds.list.forEach(item => {
+                dsTable += `<tr>
+                    <td>${item.dsw}</td>
+                    <td>${item.dsh}</td>
+                    <td>${item.pv}</td>
+                </tr>`;
+            });
+            dsTable += `</table>`;
+            dsDiv.innerHTML = dsTable;
+        }
+
+        fetchData();
     </script>
 </body>
 
-</html>
+</html>    
