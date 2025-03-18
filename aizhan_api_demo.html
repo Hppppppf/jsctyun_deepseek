@@ -1,49 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>爱站统计数据展示</title>
+    <title>网站信息展示</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ccc;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #error-message {
+            color: red;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>爱站统计数据</h1>
-    <div id="statistics"></div>
+    <h1>网站信息列表</h1>
+    <div id="error-message"></div>
+    <table id="site-table">
+        <thead>
+            <tr>
+                <th>siteKey</th>
+                <th>siteName</th>
+                <th>siteDomain</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
     <script>
-        // 假设的爱站 API 地址
-        const API_URL = "https://www.aizhantj.com/Api/Simple/report?access=m6rzto3yhzbj38ft9sxy54p8sv5771mb";
-        // 假设的 API 参数
-        const API_PARAMS = {
-            site: "https://hppppppf.github.io/jsctyun_deepseek/",
-            key: "m6rzto3yhzbj38ft9sxy54p8sv5771mb"
-        };
+        const siteTable = document.getElementById('site-table');
+        const errorMessageDiv = document.getElementById('error-message');
 
-        // 构建带有参数的 URL
-        const queryString = Object.keys(API_PARAMS)
-           .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(API_PARAMS[key])}`)
-           .join('&');
-        const fullUrl = `${API_URL}?${queryString}`;
-
-        // 发起 API 请求
-        fetch(fullUrl)
+        fetch('https://tongji.aizhan.com/Api/site/list/?access=m6rzto3yhzbj38ft9sxy54p8sv5771mb')
            .then(response => {
                 if (!response.ok) {
-                    throw new Error(`网络响应不正常: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
            .then(data => {
-                const statisticsDiv = document.getElementById('statistics');
-                const preElement = document.createElement('pre');
-                preElement.textContent = JSON.stringify(data, null, 2);
-                statisticsDiv.appendChild(preElement);
+                if (data.status) {
+                    const tbody = siteTable.querySelector('tbody');
+                    data.result.forEach(site => {
+                        const row = document.createElement('tr');
+                        const siteKeyCell = document.createElement('td');
+                        const siteNameCell = document.createElement('td');
+                        const siteDomainCell = document.createElement('td');
+
+                        siteKeyCell.textContent = site.siteKey;
+                        siteNameCell.textContent = site.siteName;
+                        siteDomainCell.textContent = site.siteDomain;
+
+                        row.appendChild(siteKeyCell);
+                        row.appendChild(siteNameCell);
+                        row.appendChild(siteDomainCell);
+
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    errorMessageDiv.textContent = `请求失败，错误码: ${data.errno}，错误信息: ${data.errmsg}`;
+                }
             })
            .catch(error => {
-                const statisticsDiv = document.getElementById('statistics');
-                statisticsDiv.textContent = `请求出错: ${error.message}`;
+                errorMessageDiv.textContent = `请求数据时出现错误: ${error.message}`;
             });
     </script>
 </body>
 
-</html>    
+</html>
