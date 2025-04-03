@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>天翼智答·天翼云知识问答</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2563eb',
+            secondary: '#1d4ed8',
+            accent: '#1e40af',
+            dark: '#1e293b',
+            light: '#f8fafc'
+          },
+          width: {
+            'card': '1080px',
+          },
+          height: {
+            'card': '800px',
+          },
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    .text-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .text-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    
+    .feature-icon {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex justify-center items-center min-h-screen p-5">
+  <!-- 卡片容器 -->
+  <div class="w-card h-card bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+    <!-- 顶部品牌区 -->
+    <div class="gradient-bg p-6 text-white">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="flex items-center mb-2">
+            <i class="fas fa-cloud text-2xl mr-3"></i>
+            <h1 class="text-3xl font-bold">天翼智答</h1>
+          </div>
+          <p class="text-lg opacity-90">天翼云知识问答系统</p>
+        </div>
+        <div class="text-5xl opacity-80">
+          <i class="fas fa-headset"></i>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 核心内容区 -->
+    <div class="flex-grow p-8 overflow-hidden">
+      <div class="grid grid-cols-2 gap-8 h-full">
+        <!-- 左侧功能特性 -->
+        <div class="border-r border-gray-200 pr-6 overflow-y-auto">
+          <h2 class="text-xl font-semibold text-primary mb-6 flex items-center">
+            <i class="fas fa-star mr-2"></i> 核心功能
+          </h2>
+          
+          <div class="space-y-6">
+            <!-- 全天候服务 -->
+            <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+              <div class="flex items-start">
+                <div class="feature-icon p-3 rounded-lg text-white mr-4">
+                  <i class="fas fa-clock text-xl"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-blue-800">7×24小时服务</h3>
+                  <p class="text-gray-700 mt-2 text-sm">全天候在线，随时解答您的云端疑问</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 知识整合 -->
+            <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+              <div class="flex items-start">
+                <div class="feature-icon p-3 rounded-lg text-white mr-4">
+                  <i class="fas fa-book text-xl"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-blue-800">深度知识整合</h3>
+                  <p class="text-gray-700 mt-2 text-sm">整合全系产品文档、技术白皮书及实战案例库</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 智能学习 -->
+            <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+              <div class="flex items-start">
+                <div class="feature-icon p-3 rounded-lg text-white mr-4">
+                  <i class="fas fa-brain text-xl"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-blue-800">智能学习引擎</h3>
+                  <p class="text-gray-700 mt-2 text-sm">持续更新行业最佳实践，不断提升问答质量</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右侧应用场景 -->
+        <div class="overflow-y-auto">
+          <h2 class="text-xl font-semibold text-primary mb-6 flex items-center">
+            <i class="fas fa-lightbulb mr-2"></i> 应用场景
+          </h2>
+          
+          <div class="space-y-6">
+            <!-- 场景1 -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <div class="flex items-start">
+                <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                  <i class="fas fa-server text-blue-600"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-800">云服务器优化</h3>
+                  <p class="text-gray-600 text-sm mt-2">快速获取服务器配置优化建议，提升云端性能</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 场景2 -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <div class="flex items-start">
+                <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                  <i class="fas fa-database text-blue-600"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-800">存储方案选型</h3>
+                  <p class="text-gray-600 text-sm mt-2">根据业务需求推荐最佳存储方案，降低成本</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 场景3 -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <div class="flex items-start">
+                <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                  <i class="fas fa-shield-alt text-blue-600"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-800">安全策略部署</h3>
+                  <p class="text-gray-600 text-sm mt-2">提供全面的安全策略建议，保障云端安全</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 场景4 -->
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <div class="flex items-start">
+                <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                  <i class="fas fa-book-open text-blue-600"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-800">操作指南跳转</h3>
+                  <p class="text-gray-600 text-sm mt-2">一键跳转官方操作指南，快速解决问题</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 底部信息栏 -->
+    <div class="border-t border-gray-200 p-4 text-sm text-gray-500 flex justify-between items-center">
+      <div class="flex items-center">
+        <i class="fas fa-tags mr-2"></i>
+        <span class="mr-3">云计算</span>
+        <span class="mr-3">智能问答</span>
+        <span>知识管理</span>
+      </div>
+      <div class="flex items-center">
+        <i class="fas fa-external-link-alt mr-2"></i>
+        <span>天翼云 | 您的云端智能助手</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+</html_rander>
